@@ -5,6 +5,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 ScorerLiteral = Literal["bm25", "tfidf"]
+SearchModeLiteral = Literal["lexical", "semantic", "hybrid"]
 
 
 class SearchHitOut(BaseModel):
@@ -18,6 +19,7 @@ class SearchHitOut(BaseModel):
 class SearchResponseOut(BaseModel):
     query: str
     scorer: ScorerLiteral
+    mode: SearchModeLiteral = "lexical"
     page: int = Field(ge=1)
     k: int = Field(ge=1)
     total: int = Field(ge=0)
@@ -42,9 +44,12 @@ class StatsOut(BaseModel):
     total_postings: int
     avg_doc_length: float
     with_positions: bool
+    semantic_ready: bool = False
+    semantic_chunks: int = 0
 
 
 class HealthOut(BaseModel):
     status: Literal["ok", "unavailable"]
     index_loaded: bool
+    semantic_loaded: bool = False
     num_docs: int = 0

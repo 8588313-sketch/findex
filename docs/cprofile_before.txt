@@ -1,0 +1,43 @@
+=== cProfile: findex index (x10) ===
+         4808 function calls (4696 primitive calls) in 0.003 seconds
+
+   Ordered by: internal time
+   List reduced from 109 to 12 due to restriction <12>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+      100    0.001    0.000    0.001    0.000 {built-in method posix.scandir}
+       50    0.001    0.000    0.002    0.000 /opt/homebrew/Cellar/python@3.11/3.11.18/Frameworks/Python.framework/Versions/3.11/lib/python3.11/pathlib.py:353(_select_from)
+   160/60    0.001    0.000    0.001    0.000 /opt/homebrew/Cellar/python@3.11/3.11.18/Frameworks/Python.framework/Versions/3.11/lib/python3.11/pathlib.py:383(_iterate_directories)
+      280    0.000    0.000    0.000    0.000 /opt/homebrew/Cellar/python@3.11/3.11.18/Frameworks/Python.framework/Versions/3.11/lib/python3.11/signal.py:69(pthread_sigmask)
+      140    0.000    0.000    0.002    0.000 /Users/user/Documents/findex/.venv/lib/python3.11/site-packages/scalene/scalene_utility.py:947(wrapped)
+      280    0.000    0.000    0.000    0.000 {built-in method _signal.pthread_sigmask}
+      660    0.000    0.000    0.000    0.000 {method 'fullmatch' of 're.Pattern' objects}
+      140    0.000    0.000    0.000    0.000 /opt/homebrew/Cellar/python@3.11/3.11.18/Frameworks/Python.framework/Versions/3.11/lib/python3.11/signal.py:24(_int_to_enum)
+       40    0.000    0.000    0.000    0.000 {built-in method posix.stat}
+      420    0.000    0.000    0.000    0.000 /opt/homebrew/Cellar/python@3.11/3.11.18/Frameworks/Python.framework/Versions/3.11/lib/python3.11/signal.py:72(<genexpr>)
+       10    0.000    0.000    0.003    0.000 /opt/homebrew/Cellar/python@3.11/3.11.18/Frameworks/Python.framework/Versions/3.11/lib/python3.11/pathlib.py:402(_select_from)
+      142    0.000    0.000    0.000    0.000 /opt/homebrew/Cellar/python@3.11/3.11.18/Frameworks/Python.framework/Versions/3.11/lib/python3.11/enum.py:688(__call__)
+
+
+
+=== cProfile: findex search (3 terms x 8000) ===
+         464253 function calls (464250 primitive calls) in 0.100 seconds
+
+   Ordered by: internal time
+   List reduced from 68 to 12 due to restriction <12>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+     8000    0.040    0.000    0.093    0.000 /Users/user/Documents/findex/src/findex/ranking.py:154(search)
+    48000    0.014    0.000    0.016    0.000 /Users/user/Documents/findex/src/findex/ranking.py:60(score)
+    40000    0.011    0.000    0.011    0.000 <exec@dataclasses.py:433>:2(__init__)
+     8000    0.005    0.000    0.100    0.000 /Users/user/Documents/findex/src/findex/decorators.py:16(wrapper)
+     8001    0.004    0.000    0.006    0.000 {built-in method builtins.sorted}
+    24003    0.003    0.000    0.005    0.000 <frozen _collections_abc>:771(get)
+    40000    0.003    0.000    0.003    0.000 /Users/user/Documents/findex/src/findex/ranking.py:203(<lambda>)
+    16000    0.002    0.000    0.005    0.000 {method 'cache_info' of 'functools._lru_cache_wrapper' objects}
+    16000    0.002    0.000    0.003    0.000 /opt/homebrew/Cellar/python@3.11/3.11.18/Frameworks/Python.framework/Versions/3.11/lib/python3.11/logging/__init__.py:1479(info)
+     8000    0.002    0.000    0.009    0.000 /opt/homebrew/Cellar/python@3.11/3.11.18/Frameworks/Python.framework/Versions/3.11/lib/python3.11/heapq.py:523(nlargest)
+    48000    0.002    0.000    0.002    0.000 {built-in method math.log}
+    16000    0.002    0.000    0.003    0.000 <string>:1(<lambda>)
+
+

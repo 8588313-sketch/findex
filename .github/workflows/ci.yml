@@ -23,5 +23,5 @@ jobs:
         run: uv run ruff check .
       - name: Typecheck with pyright (strict)
         run: uv run pyright
-      - name: Run test suite
-        run: uv run pytest -m "not slow"
+      - name: Run test suite with pytest-benchmark
+        run: uv run pytest -m "not slow" --benchmark-only --benchmark-min-rounds=5 && uv run pytest -m "not slow" --benchmark-disable

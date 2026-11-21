@@ -1,13 +1,16 @@
 [project]
 name = "findex"
-version = "0.7.0"
+version = "1.0.0"
 description = "Fast streaming inverted index, ranked search engine, async crawler, and FastAPI web UI"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115.0",
+    "fastembed>=0.9.1",
     "httpx>=0.28.0",
     "jinja2>=3.1.4",
+    "numpy>=2.4.6",
+    "pytest-benchmark>=5.3.1",
     "rich>=13.9.0",
     "typer>=0.15.0",
     "uvicorn[standard]>=0.32.0",
@@ -24,10 +27,12 @@ build-backend = "uv_build"
 dev = [
     "hypothesis>=6.120.0",
     "matplotlib>=3.9.0",
+    "py-spy>=0.4.4",
     "pyright>=1.1.390",
     "pytest>=9.2.0",
     "pytest-cov>=6.0.0",
     "ruff>=0.17.6",
+    "scalene>=2.4.0",
 ]
 
 [tool.pyright]

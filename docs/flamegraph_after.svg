@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="980" height="720" style="font-family:monospace;background:#111827;color:#f9fafb">
+<text x="16" y="32" fill="#f9fafb" font-size="16" font-weight="bold">findex search() Flame Graph (After NumPy — 4000 x 3-term queries)</text>
+<rect x="16" y="50" width="948" height="24" rx="4" fill="#3b82f6" opacity="0.88"/>
+<text x="24" y="66" fill="#ffffff" font-size="12">decorators.py:16 (wrapper) — cum=257.0ms, self=4.0ms, calls=4000</text>
+<rect x="16" y="80" width="684" height="24" rx="4" fill="#10b981" opacity="0.88"/>
+<text x="24" y="96" fill="#ffffff" font-size="12">ranking.py:291 (search) — cum=185.7ms, self=33.7ms, calls=4000</text>
+<rect x="16" y="110" width="482" height="24" rx="4" fill="#3b82f6" opacity="0.88"/>
+<text x="24" y="126" fill="#ffffff" font-size="12">__init__.py:1479 (info) — cum=130.7ms, self=3.5ms, calls=8000</text>
+<rect x="16" y="140" width="466" height="24" rx="4" fill="#3b82f6" opacity="0.88"/>
+<text x="24" y="156" fill="#ffffff" font-size="12">__init__.py:1610 (_log) — cum=126.3ms, self=4.0ms, calls=8000</text>
+<rect x="16" y="170" width="246" height="24" rx="4" fill="#3b82f6" opacity="0.88"/>
+<text x="24" y="186" fill="#ffffff" font-size="12">__init__.py:1636 (handle) — cum=66.9ms, self=2.4ms, calls=8000</text>
+<rect x="16" y="200" width="235" height="24" rx="4" fill="#3b82f6" opacity="0.88"/>
+<text x="24" y="216" fill="#ffffff" font-size="12">__init__.py:1690 (callHandlers) — cum=63.9ms, self=3.2ms, calls=8000</text>
+<rect x="16" y="230" width="223" height="24" rx="4" fill="#3b82f6" opacity="0.88"/>
+<text x="24" y="246" fill="#ffffff" font-size="12">__init__.py:965 (handle) — cum=60.7ms, self=4.3ms, calls=8000</text>
+<rect x="16" y="260" width="192" height="24" rx="4" fill="#3b82f6" opacity="0.88"/>
+<text x="24" y="276" fill="#ffffff" font-size="12">__init__.py:1098 (emit) — cum=52.3ms, self=3.7ms, calls=8000</text>
+<rect x="16" y="290" width="148" height="24" rx="4" fill="#3b82f6" opacity="0.88"/>
+<text x="24" y="306" fill="#ffffff" font-size="12">__init__.py:1595 (makeRecord) — cum=40.2ms, self=2.1ms, calls=8000</text>
+<rect x="16" y="320" width="140" height="24" rx="4" fill="#3b82f6" opacity="0.88"/>
+<text x="24" y="336" fill="#ffffff" font-size="12">__init__.py:292 (__init__) — cum=38.1ms, self=17.8ms, calls=8000</text>
+<rect x="16" y="350" width="112" height="24" rx="4" fill="#10b981" opacity="0.88"/>
+<text x="24" y="366" fill="#ffffff" font-size="12">ranking.py:104 (score_vectorized) — cum=30.6ms, self=25.9ms, calls=8000</text>
+<rect x="16" y="380" width="89" height="24" rx="4" fill="#3b82f6" opacity="0.88"/>
+<text x="24" y="396" fill="#ffffff" font-size="12">~:0 (<method 'write' of '_io.TextIOWrapper' objects>) — cum=24.1ms, self=24.1ms, calls=8000</text>
+<rect x="16" y="410" width="81" height="24" rx="4" fill="#10b981" opacity="0.88"/>
+<text x="24" y="426" fill="#ffffff" font-size="12">ranking.py:202 (_top_k_from_dense_scores) — cum=22.0ms, self=7.7ms, calls=4000</text>
+<rect x="16" y="440" width="56" height="24" rx="4" fill="#3b82f6" opacity="0.88"/>
+<text x="24" y="456" fill="#ffffff" font-size="12">__init__.py:1561 (findCaller) — cum=15.3ms, self=5.2ms, calls=8000</text>
+<rect x="16" y="470" width="53" height="24" rx="4" fill="#3b82f6" opacity="0.88"/>
+<text x="24" y="486" fill="#ffffff" font-size="12">__init__.py:942 (format) — cum=14.5ms, self=1.5ms, calls=8000</text>
+<rect x="16" y="500" width="47" height="24" rx="4" fill="#3b82f6" opacity="0.88"/>
+<text x="24" y="516" fill="#ffffff" font-size="12">__init__.py:674 (format) — cum=13.0ms, self=3.6ms, calls=8000</text>
+<rect x="16" y="530" width="42" height="24" rx="4" fill="#3b82f6" opacity="0.88"/>
+<text x="24" y="546" fill="#ffffff" font-size="12">fromnumeric.py:2436 (any) — cum=11.5ms, self=2.0ms, calls=8000</text>
+<rect x="16" y="560" width="36" height="24" rx="4" fill="#3b82f6" opacity="0.88"/>
+<text x="24" y="576" fill="#ffffff" font-size="12">__init__.py:1087 (flush) — cum=9.9ms, self=4.7ms, calls=8000</text>
+<rect x="16" y="590" width="34" height="24" rx="4" fill="#3b82f6" opacity="0.88"/>
+<text x="24" y="606" fill="#ffffff" font-size="12">fromnumeric.py:86 (_wrapreduction_any_all) — cum=9.5ms, self=3.9ms, calls=8000</text>
+<rect x="16" y="620" width="31" height="24" rx="4" fill="#3b82f6" opacity="0.88"/>
+<text x="24" y="636" fill="#ffffff" font-size="12">__init__.py:194 (_is_internal_frame) — cum=8.4ms, self=4.9ms, calls=24000</text>
+<rect x="16" y="650" width="27" height="24" rx="4" fill="#3b82f6" opacity="0.88"/>
+<text x="24" y="666" fill="#ffffff" font-size="12"><frozen posixpath>:117 (splitext) — cum=7.5ms, self=2.9ms, calls=8000</text>
+<rect x="16" y="680" width="24" height="24" rx="4" fill="#3b82f6" opacity="0.88"/>
+<text x="24" y="696" fill="#ffffff" font-size="12">fromnumeric.py:48 (_wrapfunc) — cum=6.6ms, self=2.0ms, calls=8000</text>
+</svg>

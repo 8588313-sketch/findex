@@ -2,6 +2,9 @@ from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from functools import cached_property
 
+import numpy as np
+from numpy.typing import NDArray
+
 
 @dataclass(frozen=True, slots=True)
 class Posting:
@@ -28,7 +31,7 @@ class SearchResult:
 
 
 class Index(Mapping[str, list[Posting]]):
-    """Pythonic inverted index implementing the Mapping protocol."""
+    """Pythonic inverted index implementing the Mapping protocol with NumPy int32 arrays."""
 
     def __init__(
         self,
@@ -40,6 +43,8 @@ class Index(Mapping[str, list[Posting]]):
         self.docs = docs
         self.with_positions = with_positions
         self.all_doc_ids: list[int] = sorted(docs.keys())
+        self._np_postings_cache: dict[str, tuple[NDArray[np.int32], NDArray[np.int32]]] = {}
+        self._doc_arrays_cache: tuple[NDArray[np.int32], dict[int, int], NDArray[np.int32]] | None = None
 
     @property
     def postings(self) -> dict[str, list[Posting]]:
@@ -77,6 +82,47 @@ class Index(Mapping[str, list[Posting]]):
     def df(self, term: str) -> int:
         return len(self._postings.get(term, ()))
 
+    def _ensure_doc_arrays(self) -> tuple[NDArray[np.int32], dict[int, int], NDArray[np.int32]]:
+        if self._doc_arrays_cache is None or len(self._doc_arrays_cache[0]) != len(self.docs):
+            sorted_ids = sorted(self.docs.keys())
+            doc_ids_arr = np.array(sorted_ids, dtype=np.int32)
+            doc_lengths_arr = np.array([self.docs[d].length for d in sorted_ids], dtype=np.int32)
+            id_to_row = {d: idx for idx, d in enumerate(sorted_ids)}
+            self._doc_arrays_cache = (doc_ids_arr, id_to_row, doc_lengths_arr)
+        return self._doc_arrays_cache
 
-# Backward-compatible alias for Lab 2 code/tests
+    @property
+    def doc_ids_array(self) -> NDArray[np.int32]:
+        return self._ensure_doc_arrays()[0]
+
+    @property
+    def doc_id_to_row(self) -> dict[int, int]:
+        return self._ensure_doc_arrays()[1]
+
+    @property
+    def doc_lengths_array(self) -> NDArray[np.int32]:
+        """Contiguous int32 array of document token lengths aligned with doc_ids_array."""
+        return self._ensure_doc_arrays()[2]
+
+    def get_numpy_postings(self, term: str) -> tuple[NDArray[np.int32], NDArray[np.int32]] | None:
+        """Return (doc_ids: int32[df], tfs: int32[df]) for a term, cached lazily."""
+        cached = self._np_postings_cache.get(term)
+        if cached is not None:
+            return cached
+        plist = self._postings.get(term)
+        if not plist:
+            return None
+        doc_ids = np.array([p.doc_id for p in plist], dtype=np.int32)
+        tfs = np.array([p.tf for p in plist], dtype=np.int32)
+        pair = (doc_ids, tfs)
+        self._np_postings_cache[term] = pair
+        return pair
+
+    def prewarm_numpy(self) -> None:
+        """Materialize int32 arrays for all documents and terms ahead of search benchmarks."""
+        _ = self._ensure_doc_arrays()
+        for term in self._postings:
+            _ = self.get_numpy_postings(term)
+
+
 InvertedIndex = Index

@@ -205,6 +205,11 @@
     <form class="search-box" method="get" action="/"
           hx-get="/ui/results" hx-target="#results-region" hx-push-url="false">
       <input type="text" name="q" value="{{ query }}" placeholder="Введіть запит: наприклад, python AND asyncio або &quot;event loop&quot;..." autofocus />
+      <select name="mode" aria-label="Mode">
+        <option value="lexical" {% if mode == "lexical" %}selected{% endif %}>Lexical</option>
+        <option value="semantic" {% if mode == "semantic" %}selected{% endif %}>Semantic</option>
+        <option value="hybrid" {% if mode == "hybrid" %}selected{% endif %}>Hybrid (RRF)</option>
+      </select>
       <select name="scorer" aria-label="Scorer">
         <option value="bm25" {% if scorer == "bm25" %}selected{% endif %}>BM25</option>
         <option value="tfidf" {% if scorer == "tfidf" %}selected{% endif %}>TF-IDF</option>

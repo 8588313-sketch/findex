@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="980" height="720" style="font-family:monospace;background:#111827;color:#f9fafb">
+<text x="16" y="32" fill="#f9fafb" font-size="16" font-weight="bold">findex search() Flame Graph (Before NumPy — 4000 x 3-term queries)</text>
+<rect x="16" y="50" width="948" height="24" rx="4" fill="#3b82f6" opacity="0.88"/>
+<text x="24" y="66" fill="#ffffff" font-size="12">decorators.py:16 (wrapper) — cum=49.6ms, self=2.4ms, calls=4000</text>
+<rect x="16" y="80" width="879" height="24" rx="4" fill="#ef4444" opacity="0.88"/>
+<text x="24" y="96" fill="#ffffff" font-size="12">ranking.py:154 (search) — cum=46.0ms, self=19.9ms, calls=4000</text>
+<rect x="16" y="110" width="153" height="24" rx="4" fill="#ef4444" opacity="0.88"/>
+<text x="24" y="126" fill="#ffffff" font-size="12">ranking.py:60 (score) — cum=8.0ms, self=7.0ms, calls=24000</text>
+<rect x="16" y="140" width="80" height="24" rx="4" fill="#f59e0b" opacity="0.88"/>
+<text x="24" y="156" fill="#ffffff" font-size="12">heapq.py:523 (nlargest) — cum=4.2ms, self=0.9ms, calls=4000</text>
+<rect x="16" y="170" width="59" height="24" rx="4" fill="#3b82f6" opacity="0.88"/>
+<text x="24" y="186" fill="#ffffff" font-size="12">~:0 (<built-in method builtins.sorted>) — cum=3.1ms, self=1.9ms, calls=4001</text>
+<rect x="16" y="200" width="50" height="24" rx="4" fill="#3b82f6" opacity="0.88"/>
+<text x="24" y="216" fill="#ffffff" font-size="12"><frozen _collections_abc>:771 (get) — cum=2.7ms, self=1.8ms, calls=12003</text>
+<rect x="16" y="230" width="49" height="24" rx="4" fill="#3b82f6" opacity="0.88"/>
+<text x="24" y="246" fill="#ffffff" font-size="12">~:0 (<method 'cache_info' of 'functools._lru_cache_wrapper' objects>) — cum=2.6ms, self=1.2ms, calls=8000</text>
+<rect x="16" y="260" width="30" height="24" rx="4" fill="#3b82f6" opacity="0.88"/>
+<text x="24" y="276" fill="#ffffff" font-size="12">__init__.py:1479 (info) — cum=1.6ms, self=1.0ms, calls=8000</text>
+<rect x="16" y="290" width="26" height="24" rx="4" fill="#3b82f6" opacity="0.88"/>
+<text x="24" y="306" fill="#ffffff" font-size="12"><string>:1 (<lambda>) — cum=1.4ms, self=0.9ms, calls=8000</text>
+<rect x="16" y="320" width="23" height="24" rx="4" fill="#ef4444" opacity="0.88"/>
+<text x="24" y="336" fill="#ffffff" font-size="12">ranking.py:203 (<lambda>) — cum=1.2ms, self=1.2ms, calls=20000</text>
+<rect x="16" y="350" width="19" height="24" rx="4" fill="#3b82f6" opacity="0.88"/>
+<text x="24" y="366" fill="#ffffff" font-size="12">~:0 (<built-in method math.log>) — cum=1.0ms, self=1.0ms, calls=24000</text>
+<rect x="16" y="380" width="16" height="24" rx="4" fill="#3b82f6" opacity="0.88"/>
+<text x="24" y="396" fill="#ffffff" font-size="12">models.py:48 (__getitem__) — cum=0.9ms, self=0.9ms, calls=12003</text>
+<rect x="16" y="410" width="13" height="24" rx="4" fill="#3b82f6" opacity="0.88"/>
+<text x="24" y="426" fill="#ffffff" font-size="12">~:0 (<method 'append' of 'list' objects>) — cum=0.7ms, self=0.7ms, calls=20005</text>
+<rect x="16" y="440" width="11" height="24" rx="4" fill="#3b82f6" opacity="0.88"/>
+<text x="24" y="456" fill="#ffffff" font-size="12">__init__.py:1734 (isEnabledFor) — cum=0.6ms, self=0.6ms, calls=8000</text>
+<rect x="16" y="470" width="11" height="24" rx="4" fill="#3b82f6" opacity="0.88"/>
+<text x="24" y="486" fill="#ffffff" font-size="12">models.py:67 (num_docs) — cum=0.6ms, self=0.4ms, calls=4000</text>
+<rect x="16" y="500" width="11" height="24" rx="4" fill="#ef4444" opacity="0.88"/>
+<text x="24" y="516" fill="#ffffff" font-size="12">ranking.py:183 (<dictcomp>) — cum=0.6ms, self=0.6ms, calls=4000</text>
+<rect x="16" y="530" width="10" height="24" rx="4" fill="#3b82f6" opacity="0.88"/>
+<text x="24" y="546" fill="#ffffff" font-size="12">~:0 (<built-in method builtins.len>) — cum=0.6ms, self=0.6ms, calls=16015</text>
+<rect x="16" y="560" width="9" height="24" rx="4" fill="#3b82f6" opacity="0.88"/>
+<text x="24" y="576" fill="#ffffff" font-size="12">~:0 (<built-in method __new__ of type object at 0x1038cb400>) — cum=0.5ms, self=0.5ms, calls=8000</text>
+<rect x="16" y="590" width="7" height="24" rx="4" fill="#3b82f6" opacity="0.88"/>
+<text x="24" y="606" fill="#ffffff" font-size="12">~:0 (<built-in method time.perf_counter>) — cum=0.4ms, self=0.4ms, calls=8000</text>
+<rect x="16" y="620" width="6" height="24" rx="4" fill="#ef4444" opacity="0.88"/>
+<text x="24" y="636" fill="#ffffff" font-size="12">ranking.py:56 (__init__) — cum=0.3ms, self=0.3ms, calls=4000</text>
+<rect x="16" y="650" width="6" height="24" rx="4" fill="#3b82f6" opacity="0.88"/>
+<text x="24" y="666" fill="#ffffff" font-size="12">~:0 (<built-in method builtins.id>) — cum=0.2ms, self=0.2ms, calls=4000</text>
+<rect x="16" y="680" width="6" height="24" rx="4" fill="#3b82f6" opacity="0.88"/>
+<text x="24" y="696" fill="#ffffff" font-size="12">~:0 (<method 'items' of 'dict' objects>) — cum=0.2ms, self=0.2ms, calls=4000</text>
+</svg>

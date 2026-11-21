@@ -27,6 +27,15 @@ from findex.ast_query import QuerySyntaxError
 from findex.builder import ExecutorKind, build_index_parallel
 from findex.crawler import DEFAULT_USER_AGENT, CrawlStats, crawl_to_jsonl
 from findex.ranking import ScorerName, make_scorer, search
+from findex.semantic import (
+    DEFAULT_EMBED_MODEL,
+    SearchMode,
+    build_embeddings,
+    default_semantic_dir,
+    hybrid_search,
+    load_semantic_index,
+    semantic_search,
+)
 from findex.stats import compute_stats
 from findex.storage import StorageFormat, open_index, save_index
 
@@ -234,19 +243,35 @@ def cmd_search(
     index_path: Annotated[Path, typer.Argument(help="Path to saved index file")],
     query: Annotated[str, typer.Argument(help="Boolean or phrase query")],
     scorer: Annotated[ScorerName, typer.Option("--scorer", "-s", help="Ranking model: bm25 or tfidf")] = "bm25",
+    mode: Annotated[
+        SearchMode,
+        typer.Option("--mode", "-m", help="Search mode: lexical, semantic, or hybrid"),
+    ] = "lexical",
+    semantic_dir: Annotated[
+        Path | None,
+        typer.Option("--semantic-dir", help="Directory with embeddings.npy (defaults to <index>_semantic)"),
+    ] = None,
     top_k: Annotated[int, typer.Option("--top-k", "-k", min=1, help="Number of results to display")] = 5,
     as_json: Annotated[bool, typer.Option("--json", help="Emit JSON array to stdout")] = False,
     repeat: Annotated[bool, typer.Option("--repeat", help="Run query twice to show @lru_cache HIT")] = False,
 ) -> None:
-    """Search a saved inverted index and rank matching documents."""
+    """Search a saved inverted index using lexical, semantic, or hybrid (RRF) ranking."""
     active_scorer = make_scorer(scorer)
 
     try:
         tracemalloc.start()
         with open_index(index_path) as idx:
-            results = search(idx, query, scorer=active_scorer, top_k=top_k)
-            if repeat:
-                _ = search(idx, query, scorer=active_scorer, top_k=top_k)
+            if mode == "lexical":
+                results = search(idx, query, scorer=active_scorer, top_k=top_k)
+                if repeat:
+                    _ = search(idx, query, scorer=active_scorer, top_k=top_k)
+            else:
+                sem_path = semantic_dir if semantic_dir is not None else default_semantic_dir(index_path)
+                sem_idx = load_semantic_index(sem_path)
+                if mode == "semantic":
+                    results = semantic_search(idx, sem_idx, query, top_k=top_k)
+                else:
+                    results = hybrid_search(idx, sem_idx, query, scorer=active_scorer, top_k=top_k)
         _, peak = tracemalloc.get_traced_memory()
         tracemalloc.stop()
     except (OSError, QuerySyntaxError, ValueError) as exc:
@@ -318,6 +343,43 @@ def cmd_stats(
     out_console.print(table)
 
 
+
+
+
+
+@app.command("embed")
+def cmd_embed(
+    index_path: Annotated[Path, typer.Argument(help="Path to saved index.bin file")],
+    out_dir: Annotated[
+        Path | None,
+        typer.Option("--out-dir", "-o", help="Output directory for embeddings.npy (defaults to <index>_semantic)"),
+    ] = None,
+    model: Annotated[
+        str,
+        typer.Option("--model", help="Sentence embedding model name"),
+    ] = DEFAULT_EMBED_MODEL,
+    chunk_size: Annotated[int, typer.Option("--chunk-size", min=20, help="Words per chunk")] = 120,
+    overlap: Annotated[int, typer.Option("--overlap", min=0, help="Overlapping words between chunks")] = 30,
+) -> None:
+    """Split indexed documents into chunks, compute normalized embeddings, and save to .npy."""
+    target_dir = out_dir if out_dir is not None else default_semantic_dir(index_path)
+    try:
+        with open_index(index_path) as idx:
+            sem_idx = build_embeddings(
+                idx,
+                out_dir=target_dir,
+                model_name=model,
+                chunk_words=chunk_size,
+                overlap_words=overlap,
+            )
+    except (OSError, ValueError) as exc:
+        _fail(str(exc))
+        return
+
+    out_console.print(
+        f"[green]Built semantic embeddings[/green]: chunks={sem_idx.num_chunks}, "
+        f"dim={sem_idx.dim}, model={sem_idx.model_name} -> [bold]{target_dir / 'embeddings.npy'}[/bold]"
+    )
 
 
 @app.command("serve")
