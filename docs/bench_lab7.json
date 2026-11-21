@@ -25,6 +25,13 @@
       "p50_ms": 45.19,
       "p95_ms": 68.87,
       "p99_ms": 79.15
+    },
+    {
+      "label": "Deployed service (https://findex-1cf5.onrender.com)",
+      "rps": 0.0,
+      "p50_ms": 0.0,
+      "p95_ms": 0.0,
+      "p99_ms": 0.0
     }
   ]
 }
