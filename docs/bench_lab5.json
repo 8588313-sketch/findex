@@ -1,0 +1,114 @@
+{
+  "python_version": "3.11.18",
+  "gil_enabled": true,
+  "cpu_model": "Apple M5 Pro",
+  "cpu_count": 18,
+  "worker_counts": [
+    1,
+    2,
+    4,
+    8,
+    18
+  ],
+  "rows": [
+    {
+      "executor": "serial",
+      "workers": 1,
+      "wall_s": 0.6195,
+      "cpu_s": 0.6192,
+      "merge_ms": 0.84,
+      "parent_rss_mib": 135.97,
+      "speedup": 1.0
+    },
+    {
+      "executor": "threads",
+      "workers": 1,
+      "wall_s": 0.7661,
+      "cpu_s": 0.7662,
+      "merge_ms": 103.68,
+      "parent_rss_mib": 148.17,
+      "speedup": 0.81
+    },
+    {
+      "executor": "threads",
+      "workers": 2,
+      "wall_s": 0.7364,
+      "cpu_s": 0.7391,
+      "merge_ms": 96.32,
+      "parent_rss_mib": 160.12,
+      "speedup": 0.84
+    },
+    {
+      "executor": "threads",
+      "workers": 4,
+      "wall_s": 0.7548,
+      "cpu_s": 0.7604,
+      "merge_ms": 98.45,
+      "parent_rss_mib": 171.8,
+      "speedup": 0.82
+    },
+    {
+      "executor": "threads",
+      "workers": 8,
+      "wall_s": 0.7651,
+      "cpu_s": 0.7758,
+      "merge_ms": 96.62,
+      "parent_rss_mib": 174.94,
+      "speedup": 0.81
+    },
+    {
+      "executor": "threads",
+      "workers": 18,
+      "wall_s": 0.748,
+      "cpu_s": 0.7658,
+      "merge_ms": 86.09,
+      "parent_rss_mib": 187.72,
+      "speedup": 0.83
+    },
+    {
+      "executor": "processes",
+      "workers": 1,
+      "wall_s": 1.6774,
+      "cpu_s": 0.4634,
+      "merge_ms": 71.24,
+      "parent_rss_mib": 268.86,
+      "speedup": 0.37
+    },
+    {
+      "executor": "processes",
+      "workers": 2,
+      "wall_s": 1.0502,
+      "cpu_s": 0.5352,
+      "merge_ms": 81.19,
+      "parent_rss_mib": 306.5,
+      "speedup": 0.59
+    },
+    {
+      "executor": "processes",
+      "workers": 4,
+      "wall_s": 0.9185,
+      "cpu_s": 0.6007,
+      "merge_ms": 110.45,
+      "parent_rss_mib": 307.12,
+      "speedup": 0.67
+    },
+    {
+      "executor": "processes",
+      "workers": 8,
+      "wall_s": 0.7708,
+      "cpu_s": 0.6145,
+      "merge_ms": 102.83,
+      "parent_rss_mib": 311.61,
+      "speedup": 0.8
+    },
+    {
+      "executor": "processes",
+      "workers": 18,
+      "wall_s": 0.8013,
+      "cpu_s": 0.6866,
+      "merge_ms": 112.42,
+      "parent_rss_mib": 313.59,
+      "speedup": 0.77
+    }
+  ]
+}

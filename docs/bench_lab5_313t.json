@@ -1,0 +1,69 @@
+{
+  "python_version": "3.13.18",
+  "gil_enabled": false,
+  "cpu_model": "Apple M5 Pro",
+  "cpu_count": 18,
+  "worker_counts": [
+    1,
+    2,
+    4,
+    8,
+    18
+  ],
+  "rows": [
+    {
+      "executor": "serial",
+      "workers": 1,
+      "wall_s": 0.7088,
+      "cpu_s": 0.7084,
+      "merge_ms": 1.11,
+      "parent_rss_mib": 161.56,
+      "speedup": 1.0
+    },
+    {
+      "executor": "threads",
+      "workers": 1,
+      "wall_s": 0.7264,
+      "cpu_s": 0.7264,
+      "merge_ms": 54.88,
+      "parent_rss_mib": 293.62,
+      "speedup": 0.98
+    },
+    {
+      "executor": "threads",
+      "workers": 2,
+      "wall_s": 0.5476,
+      "cpu_s": 0.7671,
+      "merge_ms": 59.9,
+      "parent_rss_mib": 339.41,
+      "speedup": 1.29
+    },
+    {
+      "executor": "threads",
+      "workers": 4,
+      "wall_s": 0.4161,
+      "cpu_s": 0.8536,
+      "merge_ms": 60.65,
+      "parent_rss_mib": 378.03,
+      "speedup": 1.7
+    },
+    {
+      "executor": "threads",
+      "workers": 8,
+      "wall_s": 0.4207,
+      "cpu_s": 1.2671,
+      "merge_ms": 60.58,
+      "parent_rss_mib": 472.78,
+      "speedup": 1.68
+    },
+    {
+      "executor": "threads",
+      "workers": 18,
+      "wall_s": 0.4155,
+      "cpu_s": 1.8414,
+      "merge_ms": 64.39,
+      "parent_rss_mib": 593.05,
+      "speedup": 1.71
+    }
+  ]
+}

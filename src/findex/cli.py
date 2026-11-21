@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import sys
 import tracemalloc
 from dataclasses import asdict
@@ -21,7 +22,7 @@ from rich.progress import (
 from rich.table import Table
 
 from findex.ast_query import QuerySyntaxError
-from findex.builder import build_index
+from findex.builder import ExecutorKind, build_index_parallel
 from findex.ranking import ScorerName, make_scorer, search
 from findex.stats import compute_stats
 from findex.storage import StorageFormat, open_index, save_index
@@ -85,6 +86,14 @@ def cmd_index(
     out: Annotated[Path, typer.Option("--out", "-o", help="Output index file path")] = Path("index.bin"),
     fmt: Annotated[StorageFormat | None, typer.Option("--format", help="Index format: bin or pickle")] = None,
     no_positions: Annotated[bool, typer.Option("--no-positions", help="Disable storing token positions")] = False,
+    workers: Annotated[
+        int,
+        typer.Option("--workers", "-w", min=1, help="Number of worker threads or processes"),
+    ] = max(1, os.cpu_count() or 1),
+    executor: Annotated[
+        ExecutorKind,
+        typer.Option("--executor", "-e", help="Execution backend: serial, threads, or processes"),
+    ] = "processes",
 ) -> None:
     """Build and serialize an inverted index from a corpus directory."""
     resolved_fmt: StorageFormat = fmt if fmt is not None else (
@@ -107,10 +116,15 @@ def cmd_index(
             console=err_console,
             transient=True,
         ) as progress:
-            task_id = progress.add_task("Indexing corpus...", total=total_files)
-            idx = build_index(
+            task_id = progress.add_task(
+                f"Indexing ({executor}, workers={workers})...",
+                total=total_files,
+            )
+            idx, build_stats = build_index_parallel(
                 root,
                 with_positions=with_positions,
+                workers=workers,
+                executor=executor,
                 on_doc=lambda _doc: progress.advance(task_id, 1),
             )
             save_index(idx, out, fmt=resolved_fmt)
@@ -126,14 +140,19 @@ def cmd_index(
     file_kib = out.stat().st_size / 1024.0
     total_postings = sum(len(pl) for pl in idx.values())
     log.info(
-        "Built %r | postings=%d | file=%.1f KiB | peak=%.2f MiB",
+        "Built %r | executor=%s workers=%d wall=%.3fs cpu=%.3fs merge=%.3fs | file=%.1f KiB",
         idx,
-        total_postings,
+        build_stats.executor,
+        build_stats.workers,
+        build_stats.wall_time_s,
+        build_stats.cpu_time_s,
+        build_stats.merge_time_s,
         file_kib,
-        peak / 1024 / 1024,
     )
     out_console.print(
         f"[green]Indexed[/green] {idx.num_docs} docs ({len(idx)} terms, {total_postings} postings) "
+        f"via [cyan]{executor}[/cyan] (workers={workers}, wall={build_stats.wall_time_s:.3f}s, "
+        f"merge={build_stats.merge_time_s * 1000:.1f}ms) "
         f"-> [bold]{out}[/bold] ({file_kib:.1f} KiB, peak {peak / 1024 / 1024:.2f} MiB)"
     )
 
