@@ -1,5 +1,9 @@
-from findex.models import InvertedIndex
+from typing import Literal
+
+from findex.models import Index
 from findex.tokenize import tokenize
+
+SearchEngine = Literal["merge", "set"]
 
 
 def normalize_term(raw: str) -> str | None:
@@ -105,14 +109,11 @@ def _parse_query(query: str) -> list[tuple[list[str], list[str]]]:
 
 
 def search_index(
-    index: InvertedIndex,
+    index: Index,
     query: str,
-    engine: str = "merge",
+    engine: SearchEngine = "merge",
 ) -> list[int]:
     """Execute a Boolean query using either two-pointer 'merge' or Python 'set'."""
-    if engine not in {"merge", "set"}:
-        raise ValueError(f"Unknown engine: {engine!r}. Expected 'merge' or 'set'.")
-
     clauses = _parse_query(query)
     if not any(p or n for p, n in clauses):
         return []
@@ -124,15 +125,15 @@ def search_index(
             if not pos_terms and not neg_terms:
                 continue
             if pos_terms:
-                sorted_pos = sorted(pos_terms, key=lambda t: len(index.postings.get(t, ())))
-                clause_set = {p.doc_id for p in index.postings.get(sorted_pos[0], ())}
+                sorted_pos = sorted(pos_terms, key=lambda t: len(index.get(t, ())))
+                clause_set = {p.doc_id for p in index.get(sorted_pos[0], ())}
                 for term in sorted_pos[1:]:
-                    clause_set &= {p.doc_id for p in index.postings.get(term, ())}
+                    clause_set &= {p.doc_id for p in index.get(term, ())}
             else:
                 clause_set = set(universe_set)
 
             for term in neg_terms:
-                clause_set -= {p.doc_id for p in index.postings.get(term, ())}
+                clause_set -= {p.doc_id for p in index.get(term, ())}
 
             result_set |= clause_set
         return sorted(result_set)
@@ -142,10 +143,10 @@ def search_index(
         if not pos_terms and not neg_terms:
             continue
         if pos_terms:
-            sorted_pos = sorted(pos_terms, key=lambda t: len(index.postings.get(t, ())))
-            clause_ids = [p.doc_id for p in index.postings.get(sorted_pos[0], ())]
+            sorted_pos = sorted(pos_terms, key=lambda t: len(index.get(t, ())))
+            clause_ids = [p.doc_id for p in index.get(sorted_pos[0], ())]
             for term in sorted_pos[1:]:
-                other_ids = [p.doc_id for p in index.postings.get(term, ())]
+                other_ids = [p.doc_id for p in index.get(term, ())]
                 clause_ids = intersect_sorted(clause_ids, other_ids)
                 if not clause_ids:
                     break
@@ -155,7 +156,7 @@ def search_index(
         for term in neg_terms:
             if not clause_ids:
                 break
-            excl_ids = [p.doc_id for p in index.postings.get(term, ())]
+            excl_ids = [p.doc_id for p in index.get(term, ())]
             clause_ids = difference_sorted(clause_ids, excl_ids)
 
         result_ids = union_sorted(result_ids, clause_ids)

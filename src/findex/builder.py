@@ -1,8 +1,9 @@
 from collections import Counter, defaultdict
+from collections.abc import Callable, Iterator
 from itertools import islice
 from pathlib import Path
 
-from findex.corpus import iter_documents
+from findex.corpus import Document, iter_documents
 from findex.decorators import timed
 from findex.models import DocMeta, Index, Posting
 from findex.tokenize import tokenize
@@ -21,9 +22,15 @@ def build_index(
     root: Path,
     with_positions: bool = True,
     limit: int | None = None,
+    on_doc: Callable[[Document], None] | None = None,
 ) -> Index:
     """Build an inverted index in a single streaming pass over the corpus."""
-    docs_iter = iter_documents(root)
+    if not root.exists():
+        raise FileNotFoundError(f"Corpus directory not found: {root}")
+    if not root.is_dir():
+        raise NotADirectoryError(f"Corpus path is not a directory: {root}")
+
+    docs_iter: Iterator[Document] = iter_documents(root)
     if limit is not None:
         docs_iter = islice(docs_iter, limit)
 
@@ -31,6 +38,8 @@ def build_index(
     docs_meta: dict[int, DocMeta] = {}
 
     for doc in docs_iter:
+        if on_doc is not None:
+            on_doc(doc)
         tokens = list(tokenize(doc.text))
         docs_meta[doc.doc_id] = DocMeta(
             doc_id=doc.doc_id,

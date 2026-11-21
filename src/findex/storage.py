@@ -2,15 +2,17 @@ import logging
 import pickle
 import struct
 from array import array
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
+from typing import Literal
 
 from findex.decorators import timed
 from findex.models import DocMeta, Index, Posting
 
 log = logging.getLogger("findex.storage")
 MAGIC = b"FIDX02"
+StorageFormat = Literal["bin", "pickle"]
 
 
 def save_pickle(index: Index, path: Path) -> None:
@@ -21,7 +23,10 @@ def save_pickle(index: Index, path: Path) -> None:
 def load_pickle(path: Path) -> Index:
     # SECURITY: Never call pickle.load() on untrusted files (RCE risk via __reduce__).
     with path.open("rb") as f:
-        return pickle.load(f)
+        obj = pickle.load(f)
+    if not isinstance(obj, Index):
+        raise TypeError(f"Unpickled object is {type(obj).__name__}, expected Index")
+    return obj
 
 
 def save_binary(index: Index, path: Path) -> None:
@@ -69,7 +74,10 @@ def load_binary(path: Path) -> Index:
         if f.read(len(MAGIC)) != MAGIC:
             raise ValueError(f"{path} is not a valid FIDX02 binary index")
 
-        with_pos_flag, num_docs, num_terms = struct.unpack("<BII", f.read(9))
+        header_bytes = f.read(9)
+        if len(header_bytes) != 9:
+            raise ValueError(f"{path} is truncated")
+        with_pos_flag, num_docs, num_terms = struct.unpack("<BII", header_bytes)
         with_positions = bool(with_pos_flag)
 
         docs: dict[int, DocMeta] = {}
@@ -108,17 +116,17 @@ def load_binary(path: Path) -> Index:
     return Index(postings=postings, docs=docs, with_positions=with_positions)
 
 
-def save_index(index: Index, path: Path, fmt: str = "bin") -> None:
+def save_index(index: Index, path: Path, fmt: StorageFormat = "bin") -> None:
     if fmt == "pickle":
         save_pickle(index, path)
-    elif fmt == "bin":
-        save_binary(index, path)
     else:
-        raise ValueError(f"Unsupported format: {fmt!r}")
+        save_binary(index, path)
 
 
 @timed
 def load_index(path: Path) -> Index:
+    if not path.exists():
+        raise FileNotFoundError(f"Index file not found: {path}")
     with path.open("rb") as f:
         header = f.read(len(MAGIC))
     if header == MAGIC:
@@ -127,7 +135,7 @@ def load_index(path: Path) -> Index:
 
 
 @contextmanager
-def open_index(path: Path) -> Iterator[Index]:
+def open_index(path: Path) -> Generator[Index, None, None]:
     """Context manager that loads an Index and guarantees resource cleanup on exit/error."""
     index: Index | None = None
     try:

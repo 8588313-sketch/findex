@@ -4,6 +4,7 @@ Usage: python -m findex.bench data/
 """
 import argparse
 import gc
+import logging
 import tempfile
 import time
 import tracemalloc
@@ -17,6 +18,8 @@ from findex.corpus import iter_documents
 from findex.query import search_index
 from findex.storage import load_binary, load_pickle, save_binary, save_pickle
 from findex.tokenize import tokenize
+
+log = logging.getLogger("findex.bench")
 
 
 @dataclass
@@ -40,21 +43,21 @@ def _collect_raw_postings(root: Path) -> dict[str, list[tuple[int, int]]]:
 
 
 def bench_memory(raw: dict[str, list[tuple[int, int]]], root: Path) -> None:
-    print("=== 1. MEMORY COMPARISON (tracemalloc) ===")
+    log.info("=== 1. MEMORY COMPARISON (tracemalloc) ===")
 
-    def build_regular():
+    def build_regular() -> dict[str, list[RegularPosting]]:
         return {
             term: [RegularPosting(d, tf) for d, tf in plist]
             for term, plist in raw.items()
         }
 
-    def build_slotted():
+    def build_slotted() -> dict[str, list[SlottedPosting]]:
         return {
             term: [SlottedPosting(d, tf) for d, tf in plist]
             for term, plist in raw.items()
         }
 
-    def build_arrays():
+    def build_arrays() -> dict[str, tuple[array[int], array[int]]]:
         return {
             term: (
                 array("I", (d for d, _ in plist)),
@@ -73,8 +76,11 @@ def bench_memory(raw: dict[str, list[tuple[int, int]]], root: Path) -> None:
         obj = fn()
         current, peak = tracemalloc.get_traced_memory()
         tracemalloc.stop()
-        print(
-            f"  {label:<24} | current: {current / 1024:8.1f} KiB | peak: {peak / 1024:8.1f} KiB"
+        log.info(
+            "  %-24s | current: %8.1f KiB | peak: %8.1f KiB",
+            label,
+            current / 1024,
+            peak / 1024,
         )
         del obj
 
@@ -84,21 +90,22 @@ def bench_memory(raw: dict[str, list[tuple[int, int]]], root: Path) -> None:
         idx = build_index(root, with_positions=with_pos)
         current, peak = tracemalloc.get_traced_memory()
         tracemalloc.stop()
-        print(
-            f"  Full index (pos={with_pos!s:<5}) | current: {current / 1024:8.1f} KiB | peak: {peak / 1024:8.1f} KiB"
+        log.info(
+            "  Full index (pos=%-5s) | current: %8.1f KiB | peak: %8.1f KiB",
+            with_pos,
+            current / 1024,
+            peak / 1024,
         )
         del idx
 
 
 def bench_search(root: Path) -> None:
-    print("\n=== 2. BOOLEAN SEARCH: merge vs set ===")
+    log.info("=== 2. BOOLEAN SEARCH: merge vs set ===")
     index = build_index(root, with_positions=False)
-    sorted_terms = sorted(index.postings.items(), key=lambda kv: len(kv[1]), reverse=True)
+    sorted_terms = sorted(index.items(), key=lambda kv: len(kv[1]), reverse=True)
 
     freq_terms = [t for t, _ in sorted_terms[:2]]
     rare_terms = [t for t, _ in sorted_terms[-2:]]
-    print(f"  2 most frequent terms: {freq_terms} (df={[len(index.postings[t]) for t in freq_terms]})")
-    print(f"  2 rarest terms:        {rare_terms} (df={[len(index.postings[t]) for t in rare_terms]})")
 
     queries = [
         ("Frequent AND", f"{freq_terms[0]} AND {freq_terms[1]}"),
@@ -110,24 +117,31 @@ def bench_search(root: Path) -> None:
 
     iters = 5000
     for name, q in queries:
+        res_merge: list[int] = []
         t0 = time.perf_counter()
         for _ in range(iters):
             res_merge = search_index(index, q, engine="merge")
         dt_merge = (time.perf_counter() - t0) * 1e6 / iters
 
+        res_set: list[int] = []
         t0 = time.perf_counter()
         for _ in range(iters):
             res_set = search_index(index, q, engine="set")
         dt_set = (time.perf_counter() - t0) * 1e6 / iters
 
         assert res_merge == res_set
-        print(
-            f"  {name:<14} ({q:<22}) | hits={len(res_merge):2d} | merge={dt_merge:6.2f} µs | set={dt_set:6.2f} µs"
+        log.info(
+            "  %-14s (%-22s) | hits=%2d | merge=%6.2f us | set=%6.2f us",
+            name,
+            q,
+            len(res_merge),
+            dt_merge,
+            dt_set,
         )
 
 
 def bench_serialization(root: Path) -> None:
-    print("\n=== 3. SERIALIZATION: pickle vs binary array('I') ===")
+    log.info("=== 3. SERIALIZATION: pickle vs binary array('I') ===")
     for with_pos in (False, True):
         index = build_index(root, with_positions=with_pos)
         with tempfile.TemporaryDirectory() as tmp:
@@ -150,16 +164,23 @@ def bench_serialization(root: Path) -> None:
             _ = load_binary(bin_path)
             t_bin_load = (time.perf_counter() - t0) * 1000
 
-            print(f"  [with_positions={with_pos}]")
-            print(
-                f"    pickle: size={pkl_path.stat().st_size / 1024:7.1f} KiB | save={t_pkl_save:6.2f} ms | load={t_pkl_load:6.2f} ms"
+            log.info("  [with_positions=%s]", with_pos)
+            log.info(
+                "    pickle: size=%7.1f KiB | save=%6.2f ms | load=%6.2f ms",
+                pkl_path.stat().st_size / 1024,
+                t_pkl_save,
+                t_pkl_load,
             )
-            print(
-                f"    binary: size={bin_path.stat().st_size / 1024:7.1f} KiB | save={t_bin_save:6.2f} ms | load={t_bin_load:6.2f} ms"
+            log.info(
+                "    binary: size=%7.1f KiB | save=%6.2f ms | load=%6.2f ms",
+                bin_path.stat().st_size / 1024,
+                t_bin_save,
+                t_bin_load,
             )
 
 
 def main() -> None:
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
     parser = argparse.ArgumentParser(description="Run Lab 2 benchmarks")
     parser.add_argument("root", type=Path)
     args = parser.parse_args()

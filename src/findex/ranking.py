@@ -6,17 +6,18 @@ import logging
 import math
 import re
 from pathlib import Path
-from typing import Protocol
+from typing import Literal, Protocol
 
 from findex.ast_query import parse_query
 from findex.decorators import timed
 from findex.models import Index, SearchResult
 
 log = logging.getLogger("findex.search")
+ScorerName = Literal["bm25", "tfidf"]
 
 
 class Scorer(Protocol):
-    """Duck-typed ranking scorer protocol."""
+    """Structural typing protocol for ranking scorers."""
 
     def score(
         self,
@@ -75,6 +76,10 @@ class BM25:
         return f"BM25(k1={self.k1}, b={self.b})"
 
 
+def make_scorer(name: ScorerName = "bm25") -> Scorer:
+    return BM25() if name == "bm25" else TfIdf()
+
+
 def make_snippet(
     text: str,
     terms: list[str],
@@ -101,7 +106,6 @@ def make_snippet(
     if not matches:
         return clean[: window * 2] + ("..." if len(clean) > window * 2 else "")
 
-    # Pick window with the highest density of query matches
     best_center = matches[0].start()
     best_count = -1
     for m in matches:
@@ -121,12 +125,14 @@ def make_snippet(
     return f"{prefix}{highlighted}{suffix}"
 
 
-# Hold strong references by index id so @lru_cache stays safe and deterministic
 _INDEX_REGISTRY: dict[int, Index] = {}
 
 
 @functools.lru_cache(maxsize=128)
-def _cached_eval(index_key: int, query: str) -> tuple[tuple[int, ...], tuple[str, ...], tuple[tuple[str, ...], ...]]:
+def _cached_eval(
+    index_key: int,
+    query: str,
+) -> tuple[tuple[int, ...], tuple[str, ...], tuple[tuple[str, ...], ...]]:
     index = _INDEX_REGISTRY[index_key]
     ast = parse_query(query)
     doc_ids = tuple(sorted(ast.evaluate(index)))
@@ -140,7 +146,8 @@ def clear_query_cache() -> None:
     _INDEX_REGISTRY.clear()
 
 
-def query_cache_info():
+def query_cache_info() -> functools._CacheInfo:  # pyright: ignore[reportPrivateUsage]
+    # functools._CacheInfo is the return type of lru_cache.cache_info() in Python 3.11 stdlib
     return _cached_eval.cache_info()
 
 

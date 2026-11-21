@@ -7,14 +7,15 @@ import logging
 from pathlib import Path
 
 from findex.builder import build_index
-from findex.models import DocMeta, Index, Posting
+from findex.models import DocMeta, Index, Posting, SearchResult
 from findex.ranking import BM25, TfIdf, clear_query_cache, search
+
+log = logging.getLogger("findex.bench_lab3")
 
 
 def run_sanity_checks(corpus_index: Index) -> None:
-    print("=== 1. RANKING SANITY CHECKS ===")
+    log.info("=== 1. RANKING SANITY CHECKS ===")
 
-    # Check 1: Rare term scores higher than frequent term (on real corpus)
     sorted_terms = sorted(corpus_index.items(), key=lambda kv: len(kv[1]))
     rare_term, rare_plist = next((t, pl) for t, pl in sorted_terms if len(pl) == 1 and len(t) > 4)
     freq_term, freq_plist = max(corpus_index.items(), key=lambda kv: len(kv[1]))
@@ -40,12 +41,17 @@ def run_sanity_checks(corpus_index: Index) -> None:
         freq_doc.tf, len(freq_plist), corpus_index.docs[freq_doc.doc_id].length,
         corpus_index.num_docs, corpus_index.avg_doc_length,
     )
-    print("  1) Rare vs Frequent term:")
-    print(f"     Rare  {rare_term!r} (df={len(rare_plist)}, tf={rare_doc.tf}) -> BM25={s_rare_bm25:.4f}, TF-IDF={s_rare_tfidf:.4f}")
-    print(f"     Freq  {freq_term!r} (df={len(freq_plist)}, tf={freq_doc.tf}) -> BM25={s_freq_bm25:.4f}, TF-IDF={s_freq_tfidf:.4f}")
+    log.info("  1) Rare vs Frequent term:")
+    log.info(
+        "     Rare  %r (df=%d, tf=%d) -> BM25=%.4f, TF-IDF=%.4f",
+        rare_term, len(rare_plist), rare_doc.tf, s_rare_bm25, s_rare_tfidf,
+    )
+    log.info(
+        "     Freq  %r (df=%d, tf=%d) -> BM25=%.4f, TF-IDF=%.4f",
+        freq_term, len(freq_plist), freq_doc.tf, s_freq_bm25, s_freq_tfidf,
+    )
     assert s_rare_bm25 > s_freq_bm25 and s_rare_tfidf > s_freq_tfidf
 
-    # Check 2: 20th repetition adds almost nothing (TF saturation)
     num_docs = corpus_index.num_docs
     avg_dl = corpus_index.avg_doc_length
     dl = int(avg_dl)
@@ -56,12 +62,11 @@ def run_sanity_checks(corpus_index: Index) -> None:
     bm25_20 = bm25.score(20, df_sample, dl, num_docs, avg_dl)
     gain_1_to_2 = bm25_2 - bm25_1
     gain_19_to_20 = bm25_20 - bm25_19
-    print(f"  2) TF Saturation (BM25, df={df_sample}, doc_len={dl}):")
-    print(f"     tf=1 -> {bm25_1:.4f}, tf=2 -> {bm25_2:.4f} (gain +{gain_1_to_2:.4f})")
-    print(f"     tf=19 -> {bm25_19:.4f}, tf=20 -> {bm25_20:.4f} (gain +{gain_19_to_20:.4f})")
+    log.info("  2) TF Saturation (BM25, df=%d, doc_len=%d):", df_sample, dl)
+    log.info("     tf=1 -> %.4f, tf=2 -> %.4f (gain +%.4f)", bm25_1, bm25_2, gain_1_to_2)
+    log.info("     tf=19 -> %.4f, tf=20 -> %.4f (gain +%.4f)", bm25_19, bm25_20, gain_19_to_20)
     assert gain_19_to_20 < gain_1_to_2 * 0.05
 
-    # Check 3: Short doc with 1 occurrence beats very long doc with 1 occurrence
     toy_index = Index(
         postings={"київ": [Posting(doc_id=0, tf=1), Posting(doc_id=1, tf=1)]},
         docs={
@@ -70,15 +75,14 @@ def run_sanity_checks(corpus_index: Index) -> None:
         },
     )
     res = search(toy_index, "київ", scorer=bm25, top_k=2, include_snippets=False)
-    print("  3) Short vs Long doc (both tf=1):")
-    print(f"     Short (len=50):  score={res[0].score:.4f} ({res[0].title})")
-    print(f"     Long (len=20000): score={res[1].score:.4f} ({res[1].title})")
+    log.info("  3) Short vs Long doc (both tf=1):")
+    log.info("     Short (len=50):  score=%.4f (%s)", res[0].score, res[0].title)
+    log.info("     Long (len=20000): score=%.4f (%s)", res[1].score, res[1].title)
     assert res[0].doc_id == 0 and res[0].score > res[1].score
 
 
 def run_precision_eval(index: Index) -> None:
-    print()
-    print("=== 2. PRECISION@5 EVALUATION (10 QUERIES: TF-IDF vs BM25) ===")
+    log.info("=== 2. PRECISION@5 EVALUATION (10 QUERIES: TF-IDF vs BM25) ===")
     benchmark_queries: list[tuple[str, tuple[str, ...]]] = [
         ("київ AND столиця", ("Київ", "Історія_України")),
         ("тарас AND шевченко", ("Тарас_Шевченко", "Список_пам")),
@@ -99,7 +103,7 @@ def run_precision_eval(index: Index) -> None:
         res_tfidf = search(index, q, scorer=TfIdf(), top_k=5, include_snippets=False)
         res_bm25 = search(index, q, scorer=BM25(), top_k=5, include_snippets=False)
 
-        def calc_p5(results, markers=relevant_markers) -> float:
+        def calc_p5(results: list[SearchResult], markers: tuple[str, ...] = relevant_markers) -> float:
             if not results:
                 return 0.0
             hits = sum(
@@ -112,11 +116,11 @@ def run_precision_eval(index: Index) -> None:
         p_bm = calc_p5(res_bm25)
         p5_tfidf_list.append(p_tf)
         p5_bm25_list.append(p_bm)
-        print(f"  {q:<55} | P@5 TF-IDF={p_tf:.2f} | BM25={p_bm:.2f}")
+        log.info("  %-55s | P@5 TF-IDF=%.2f | BM25=%.2f", q, p_tf, p_bm)
 
     mean_tfidf = sum(p5_tfidf_list) / len(p5_tfidf_list)
     mean_bm25 = sum(p5_bm25_list) / len(p5_bm25_list)
-    print(f"  MEAN P@5: TF-IDF={mean_tfidf:.3f} | BM25={mean_bm25:.3f}")
+    log.info("  MEAN P@5: TF-IDF=%.3f | BM25=%.3f", mean_tfidf, mean_bm25)
 
 
 def main() -> None:
@@ -130,8 +134,7 @@ def main() -> None:
     run_sanity_checks(index)
     run_precision_eval(index)
 
-    print()
-    print("=== 3. @timed & @lru_cache TRACE ===")
+    log.info("=== 3. @timed & @lru_cache TRACE ===")
     demo_q = "київ AND (україна OR львів) NOT росія"
     _ = search(index, demo_q, scorer=BM25(), top_k=3, include_snippets=False)
     _ = search(index, demo_q, scorer=BM25(), top_k=3, include_snippets=False)
