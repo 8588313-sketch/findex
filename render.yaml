@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: findex-web-search
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: INDEX_PATH
+        value: /data/index.bin
+      - key: WEB_WORKERS
+        value: "1"

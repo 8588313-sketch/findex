@@ -318,5 +318,36 @@ def cmd_stats(
     out_console.print(table)
 
 
+
+
+@app.command("serve")
+def cmd_serve(
+    host: Annotated[str, typer.Option("--host", help="Bind host address")] = "0.0.0.0",
+    port: Annotated[int, typer.Option("--port", "-p", min=1, max=65535, help="Bind TCP port")] = 8000,
+    workers: Annotated[int, typer.Option("--workers", "-w", min=1, help="Number of Uvicorn worker processes")] = 1,
+    index_path: Annotated[
+        Path | None,
+        typer.Option("--index-path", "-i", help="Path to serialized index file (overrides INDEX_PATH)"),
+    ] = None,
+) -> None:
+    """Start the FastAPI web search server via Uvicorn."""
+    import uvicorn
+
+    if index_path is not None:
+        os.environ["INDEX_PATH"] = str(index_path)
+    resolved_idx = os.getenv("INDEX_PATH", "index.bin")
+    out_console.print(
+        f"[green]Starting findex web server[/green] on [bold]http://{host}:{port}[/bold] "
+        f"(workers={workers}, INDEX_PATH={resolved_idx})"
+    )
+    uvicorn.run(
+        "findex.web.app:app",
+        host=host,
+        port=port,
+        workers=workers,
+        log_level="info",
+    )
+
+
 if __name__ == "__main__":
     app()

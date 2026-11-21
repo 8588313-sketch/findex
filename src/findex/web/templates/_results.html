@@ -1,0 +1,50 @@
+{% if error_message %}
+  <div class="error-box">{{ error_message }}</div>
+{% elif response %}
+  <div class="meta-bar">
+    <span>Знайдено <strong>{{ response.total }}</strong> документів ({{ "%.2f"|format(response.took_ms) }} мс, модель {{ response.scorer.upper() }})</span>
+    {% if response.total_pages > 0 %}
+      <span>Сторінка {{ response.page }} із {{ response.total_pages }}</span>
+    {% endif %}
+  </div>
+
+  {% if response.hits %}
+    {% for hit in response.hits %}
+      <article class="card">
+        <div class="card-header">
+          <a class="card-title"
+             href="/?q={{ response.query | urlencode }}&scorer={{ response.scorer }}&page={{ response.page }}&doc_id={{ hit.doc_id }}"
+             hx-get="/ui/doc/{{ hit.doc_id }}"
+             hx-target="#doc-region">
+            {{ hit.title }}
+          </a>
+          <span class="score-pill">score: {{ "%.4f"|format(hit.score) }}</span>
+        </div>
+        <div style="font-size:0.8rem;color:var(--muted);">{{ hit.path }} (doc_id={{ hit.doc_id }})</div>
+        <p class="snippet">{{ hit.highlighted_snippet | safe }}</p>
+      </article>
+    {% endfor %}
+
+    {% if response.total_pages > 1 %}
+      <nav class="pagination" aria-label="Pagination">
+        {% if response.has_prev %}
+          <a href="/?q={{ response.query | urlencode }}&scorer={{ response.scorer }}&page={{ response.page - 1 }}"
+             hx-get="/ui/results?q={{ response.query | urlencode }}&scorer={{ response.scorer }}&k={{ response.k }}&page={{ response.page - 1 }}"
+             hx-target="#results-region">← Попередня</a>
+        {% endif %}
+        <span style="color:var(--muted);font-size:0.9rem;">{{ response.page }} / {{ response.total_pages }}</span>
+        {% if response.has_next %}
+          <a href="/?q={{ response.query | urlencode }}&scorer={{ response.scorer }}&page={{ response.page + 1 }}"
+             hx-get="/ui/results?q={{ response.query | urlencode }}&scorer={{ response.scorer }}&k={{ response.k }}&page={{ response.page + 1 }}"
+             hx-target="#results-region">Наступна →</a>
+        {% endif %}
+      </nav>
+    {% endif %}
+  {% else %}
+    <div class="tips">За запитом <strong>«{{ response.query }}»</strong> нічого не знайдено. Спробуйте інші ключові слова або оператор <code>OR</code>.</div>
+  {% endif %}
+{% else %}
+  <div class="tips">
+    Підтримуються булеві оператори <code>AND</code>, <code>OR</code>, <code>NOT</code>, дужки та точний пошук фрази у лапках <code>"..."</code>.
+  </div>
+{% endif %}

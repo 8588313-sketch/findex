@@ -1,0 +1,30 @@
+{
+  "burst_20_comparison": {
+    "concurrent_requests": 20,
+    "def_route_median_ms": 84.89,
+    "async_def_route_median_ms": 80.61
+  },
+  "load_rows": [
+    {
+      "label": "1 worker (async def -> blocks loop)",
+      "rps": 434.1,
+      "p50_ms": 45.2,
+      "p95_ms": 58.06,
+      "p99_ms": 63.36
+    },
+    {
+      "label": "1 worker (def -> threadpool)",
+      "rps": 434.1,
+      "p50_ms": 45.2,
+      "p95_ms": 58.06,
+      "p99_ms": 63.36
+    },
+    {
+      "label": "4 workers (def -> 4 processes)",
+      "rps": 422.7,
+      "p50_ms": 45.19,
+      "p95_ms": 68.87,
+      "p99_ms": 79.15
+    }
+  ]
+}
