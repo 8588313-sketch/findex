@@ -1,0 +1,122 @@
+import pickle
+import struct
+from array import array
+from pathlib import Path
+
+from findex.models import DocMeta, InvertedIndex, Posting
+
+MAGIC = b"FIDX02"
+
+
+def save_pickle(index: InvertedIndex, path: Path) -> None:
+    with path.open("wb") as f:
+        pickle.dump(index, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+
+def load_pickle(path: Path) -> InvertedIndex:
+    # БЕЗПЕКА: pickle.load() НЕ МОЖНА викликати на чужих або неперевірених файлах!
+    # Під час десеріалізації pickle виконує інструкції стекової віртуальної машини
+    # (зокрема через __reduce__), що дає зловмиснику змогу виконати довільний Python-код (RCE).
+    with path.open("rb") as f:
+        return pickle.load(f)
+
+
+def save_binary(index: InvertedIndex, path: Path) -> None:
+    """Serialize index into a compact binary format backed by array('I')."""
+    with path.open("wb") as f:
+        f.write(MAGIC)
+        f.write(
+            struct.pack(
+                "<BII",
+                int(index.with_positions),
+                len(index.docs),
+                len(index.postings),
+            )
+        )
+
+        for doc_id in index.all_doc_ids:
+            meta = index.docs[doc_id]
+            path_b = meta.path.encode("utf-8")
+            title_b = meta.title.encode("utf-8")
+            f.write(struct.pack("<III", meta.doc_id, meta.length, len(path_b)))
+            f.write(path_b)
+            f.write(struct.pack("<I", len(title_b)))
+            f.write(title_b)
+
+        for term, plist in index.postings.items():
+            term_b = term.encode("utf-8")
+            f.write(struct.pack("<II", len(term_b), len(plist)))
+            f.write(term_b)
+
+            doc_ids = array("I", (p.doc_id for p in plist))
+            tfs = array("I", (p.tf for p in plist))
+            doc_ids.tofile(f)
+            tfs.tofile(f)
+
+            if index.with_positions:
+                for p in plist:
+                    pos_arr = array("I", p.positions)
+                    f.write(struct.pack("<I", len(pos_arr)))
+                    pos_arr.tofile(f)
+
+
+def load_binary(path: Path) -> InvertedIndex:
+    """Safely deserialize an index from the custom array('I') binary format."""
+    with path.open("rb") as f:
+        if f.read(len(MAGIC)) != MAGIC:
+            raise ValueError(f"{path} is not a valid FIDX02 binary index")
+
+        with_pos_flag, num_docs, num_terms = struct.unpack("<BII", f.read(9))
+        with_positions = bool(with_pos_flag)
+
+        docs: dict[int, DocMeta] = {}
+        for _ in range(num_docs):
+            doc_id, length, path_len = struct.unpack("<III", f.read(12))
+            doc_path = f.read(path_len).decode("utf-8")
+            (title_len,) = struct.unpack("<I", f.read(4))
+            title = f.read(title_len).decode("utf-8")
+            docs[doc_id] = DocMeta(
+                doc_id=doc_id, path=doc_path, title=title, length=length
+            )
+
+        postings: dict[str, list[Posting]] = {}
+        for _ in range(num_terms):
+            term_len, df = struct.unpack("<II", f.read(8))
+            term = f.read(term_len).decode("utf-8")
+
+            doc_ids = array("I")
+            tfs = array("I")
+            doc_ids.fromfile(f, df)
+            tfs.fromfile(f, df)
+
+            if with_positions:
+                plist: list[Posting] = []
+                for d_id, tf in zip(doc_ids, tfs):
+                    (pos_len,) = struct.unpack("<I", f.read(4))
+                    pos_arr = array("I")
+                    pos_arr.fromfile(f, pos_len)
+                    plist.append(Posting(doc_id=d_id, tf=tf, positions=tuple(pos_arr)))
+                postings[term] = plist
+            else:
+                postings[term] = [
+                    Posting(doc_id=d_id, tf=tf) for d_id, tf in zip(doc_ids, tfs)
+                ]
+
+    return InvertedIndex(postings=postings, docs=docs, with_positions=with_positions)
+
+
+def save_index(index: InvertedIndex, path: Path, fmt: str = "bin") -> None:
+    if fmt == "pickle":
+        save_pickle(index, path)
+    elif fmt == "bin":
+        save_binary(index, path)
+    else:
+        raise ValueError(f"Unsupported format: {fmt!r}")
+
+
+def load_index(path: Path) -> InvertedIndex:
+    with path.open("rb") as f:
+        header = f.read(len(MAGIC))
+    if header == MAGIC:
+        return load_binary(path)
+    return load_pickle(path)
