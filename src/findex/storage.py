@@ -1,27 +1,30 @@
+import logging
 import pickle
 import struct
 from array import array
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
-from findex.models import DocMeta, InvertedIndex, Posting
+from findex.decorators import timed
+from findex.models import DocMeta, Index, Posting
 
+log = logging.getLogger("findex.storage")
 MAGIC = b"FIDX02"
 
 
-def save_pickle(index: InvertedIndex, path: Path) -> None:
+def save_pickle(index: Index, path: Path) -> None:
     with path.open("wb") as f:
         pickle.dump(index, f, protocol=pickle.HIGHEST_PROTOCOL)
 
 
-def load_pickle(path: Path) -> InvertedIndex:
-    # БЕЗПЕКА: pickle.load() НЕ МОЖНА викликати на чужих або неперевірених файлах!
-    # Під час десеріалізації pickle виконує інструкції стекової віртуальної машини
-    # (зокрема через __reduce__), що дає зловмиснику змогу виконати довільний Python-код (RCE).
+def load_pickle(path: Path) -> Index:
+    # SECURITY: Never call pickle.load() on untrusted files (RCE risk via __reduce__).
     with path.open("rb") as f:
         return pickle.load(f)
 
 
-def save_binary(index: InvertedIndex, path: Path) -> None:
+def save_binary(index: Index, path: Path) -> None:
     """Serialize index into a compact binary format backed by array('I')."""
     with path.open("wb") as f:
         f.write(MAGIC)
@@ -30,7 +33,7 @@ def save_binary(index: InvertedIndex, path: Path) -> None:
                 "<BII",
                 int(index.with_positions),
                 len(index.docs),
-                len(index.postings),
+                len(index),
             )
         )
 
@@ -43,7 +46,7 @@ def save_binary(index: InvertedIndex, path: Path) -> None:
             f.write(struct.pack("<I", len(title_b)))
             f.write(title_b)
 
-        for term, plist in index.postings.items():
+        for term, plist in index.items():
             term_b = term.encode("utf-8")
             f.write(struct.pack("<II", len(term_b), len(plist)))
             f.write(term_b)
@@ -60,7 +63,7 @@ def save_binary(index: InvertedIndex, path: Path) -> None:
                     pos_arr.tofile(f)
 
 
-def load_binary(path: Path) -> InvertedIndex:
+def load_binary(path: Path) -> Index:
     """Safely deserialize an index from the custom array('I') binary format."""
     with path.open("rb") as f:
         if f.read(len(MAGIC)) != MAGIC:
@@ -102,10 +105,10 @@ def load_binary(path: Path) -> InvertedIndex:
                     Posting(doc_id=d_id, tf=tf) for d_id, tf in zip(doc_ids, tfs)
                 ]
 
-    return InvertedIndex(postings=postings, docs=docs, with_positions=with_positions)
+    return Index(postings=postings, docs=docs, with_positions=with_positions)
 
 
-def save_index(index: InvertedIndex, path: Path, fmt: str = "bin") -> None:
+def save_index(index: Index, path: Path, fmt: str = "bin") -> None:
     if fmt == "pickle":
         save_pickle(index, path)
     elif fmt == "bin":
@@ -114,9 +117,25 @@ def save_index(index: InvertedIndex, path: Path, fmt: str = "bin") -> None:
         raise ValueError(f"Unsupported format: {fmt!r}")
 
 
-def load_index(path: Path) -> InvertedIndex:
+@timed
+def load_index(path: Path) -> Index:
     with path.open("rb") as f:
         header = f.read(len(MAGIC))
     if header == MAGIC:
         return load_binary(path)
     return load_pickle(path)
+
+
+@contextmanager
+def open_index(path: Path) -> Iterator[Index]:
+    """Context manager that loads an Index and guarantees resource cleanup on exit/error."""
+    index: Index | None = None
+    try:
+        index = load_index(path)
+        yield index
+    finally:
+        if index is not None:
+            index.postings.clear()
+            index.docs.clear()
+            index.all_doc_ids.clear()
+        log.debug("Released index resources for %s", path)

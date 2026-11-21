@@ -1,65 +1,51 @@
-"""Search a saved inverted index.
+"""Ranked Boolean & phrase search CLI.
 
-Usage: python -m findex.search index.bin "query" [--engine {merge,set}]
+Usage: python -m findex.search index.bin "query" [--scorer {bm25,tfidf}] [--top-k 5] [--repeat]
 """
 import argparse
-import time
+import logging
 import tracemalloc
 from pathlib import Path
 
-from findex.query import normalize_term, search_index
-from findex.storage import load_index
+from findex.ranking import BM25, Scorer, TfIdf, search
+from findex.storage import open_index
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Search inverted index")
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    parser = argparse.ArgumentParser(description="Ranked search over inverted index")
     parser.add_argument("index_path", type=Path, help="Path to saved index file")
-    parser.add_argument("query", type=str, help="Boolean search query")
+    parser.add_argument("query", type=str, help="Boolean/phrase query")
     parser.add_argument(
-        "--engine",
-        choices=("merge", "set"),
-        default="merge",
-        help="Intersection/union engine (default: merge)",
+        "--scorer",
+        choices=("bm25", "tfidf"),
+        default="bm25",
+        help="Ranking scorer (default: bm25)",
+    )
+    parser.add_argument("--top-k", type=int, default=5, help="Number of results to show")
+    parser.add_argument(
+        "--repeat",
+        action="store_true",
+        help="Run the same query a second time to demonstrate @lru_cache HIT",
     )
     args = parser.parse_args()
 
+    scorer: Scorer = BM25() if args.scorer == "bm25" else TfIdf()
+
     tracemalloc.start()
-    t0 = time.perf_counter()
-    index = load_index(args.index_path)
-    t_load = time.perf_counter() - t0
-
-    t1 = time.perf_counter()
-    doc_ids = search_index(index, args.query, engine=args.engine)
-    t_search = time.perf_counter() - t1
-
+    with open_index(args.index_path) as index:
+        results = search(index, args.query, scorer=scorer, top_k=args.top_k)
+        if args.repeat:
+            _ = search(index, args.query, scorer=scorer, top_k=args.top_k)
     _, peak = tracemalloc.get_traced_memory()
     tracemalloc.stop()
 
-    print(f"engine:      {args.engine}")
-    print(f"matches:     {len(doc_ids)}")
-    query_terms = [
-        t for raw in args.query.split()
-        if raw.upper() not in {"AND", "OR", "NOT"} and not raw.startswith("-")
-        if (t := normalize_term(raw)) is not None
-    ]
-
-    for doc_id in doc_ids:
-        meta = index.docs[doc_id]
-        tf_details = []
-        for term in query_terms:
-            plist = index.postings.get(term, ())
-            for p in plist:
-                if p.doc_id == doc_id:
-                    if index.with_positions and p.positions:
-                        tf_details.append(f"{term}:tf={p.tf}@pos{list(p.positions[:5])}")
-                    else:
-                        tf_details.append(f"{term}:tf={p.tf}")
-                    break
-        extra = f" ({', '.join(tf_details)})" if tf_details else ""
-        print(f"  [{doc_id}] {meta.title} — {meta.path} (len={meta.length}){extra}")
-
-    print(f"load time:   {t_load * 1000:.2f} ms")
-    print(f"search time: {t_search * 1000:.3f} ms")
+    print(f"scorer:      {scorer!r}")
+    print(f"top results: {len(results)}")
+    for rank, res in enumerate(results, start=1):
+        print(f"  {rank}. [{res.doc_id}] score={res.score:.4f} | {res.title}")
+        if res.snippet:
+            print(f"     {res.snippet}")
     print(f"peak memory: {peak / 1024 / 1024:.2f} MiB")
 
 

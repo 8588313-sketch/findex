@@ -3,7 +3,8 @@ from itertools import islice
 from pathlib import Path
 
 from findex.corpus import iter_documents
-from findex.models import DocMeta, InvertedIndex, Posting
+from findex.decorators import timed
+from findex.models import DocMeta, Index, Posting
 from findex.tokenize import tokenize
 
 
@@ -15,11 +16,12 @@ def _title_from_path(path: Path) -> str:
     return stem.replace("_", " ")
 
 
+@timed
 def build_index(
     root: Path,
-    with_positions: bool = False,
+    with_positions: bool = True,
     limit: int | None = None,
-) -> InvertedIndex:
+) -> Index:
     """Build an inverted index in a single streaming pass over the corpus."""
     docs_iter = iter_documents(root)
     if limit is not None:
@@ -50,7 +52,7 @@ def build_index(
             for term, tf in counts.items():
                 postings_map[term].append(Posting(doc_id=doc.doc_id, tf=tf))
 
-    return InvertedIndex(
+    return Index(
         postings=dict(postings_map),
         docs=docs_meta,
         with_positions=with_positions,
