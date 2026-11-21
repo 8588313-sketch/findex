@@ -27,11 +27,11 @@
       "p99_ms": 79.15
     },
     {
-      "label": "Deployed service (https://findex-1cf5.onrender.com)",
-      "rps": 0.0,
-      "p50_ms": 0.0,
-      "p95_ms": 0.0,
-      "p99_ms": 0.0
+      "label": "Deployed service (https://findex-icf5.onrender.com)",
+      "rps": 11.5,
+      "p50_ms": 227.6,
+      "p95_ms": 279.46,
+      "p99_ms": 726.62
     }
   ]
 }

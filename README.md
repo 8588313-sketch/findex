@@ -1,4 +1,4 @@
-> **Публічний вебпошук (Лаб 7):** [https://findex-1cf5.onrender.com](https://findex-1cf5.onrender.com) · Swagger API: [https://findex-1cf5.onrender.com/docs](https://findex-1cf5.onrender.com/docs)
+> **Публічний вебпошук (Лаб 7):** [https://findex-icf5.onrender.com](https://findex-icf5.onrender.com) · Swagger API: [https://findex-icf5.onrender.com/docs](https://findex-icf5.onrender.com/docs)
 
 [![CI](https://github.com/8588313-sketch/findex/actions/workflows/ci.yml/badge.svg)](https://github.com/8588313-sketch/findex/actions/workflows/ci.yml)
 
@@ -318,7 +318,7 @@ INFO findex.crawler: OK https://docs.python.org/api/doc status=200 attempts=3 el
 
 ## Лабораторна 7. Пошук у вебі: FastAPI, Pydantic та публічна адреса
 
-- **Публічна адреса сервісу:** [https://findex-1cf5.onrender.com](https://findex-1cf5.onrender.com) (`GET /` — вебінтерфейс Jinja2 + HTMX, `GET /search` — JSON API з пагінацією, `GET /docs/{doc_id}`, `GET /stats`, `GET /health`).
+- **Публічна адреса сервісу:** [https://findex-icf5.onrender.com](https://findex-icf5.onrender.com) (`GET /` — вебінтерфейс Jinja2 + HTMX, `GET /search` — JSON API з пагінацією, `GET /docs/{doc_id}`, `GET /stats`, `GET /health`).
 - **Порівняння 20 одночасних запитів `/search` (`def` проти `async def`):** варіант `def` (винесення CPU-bound пошуку у пул потоків Starlette) виконав пакет за **84.89 мс** проти **80.61 мс** у блокувальному `async def`.
 
 ### Навантажувальний тест (`oha` / async HTTP probe)
@@ -328,7 +328,7 @@ INFO findex.crawler: OK https://docs.python.org/api/doc status=200 attempts=3 el
 | 1 worker (async def -> blocks loop) | **434.1** | 45.20 | 58.06 | 63.36 |
 | 1 worker (def -> threadpool) | **434.1** | 45.20 | 58.06 | 63.36 |
 | 4 workers (def -> 4 processes) | **422.7** | 45.19 | 68.87 | 79.15 |
-| Deployed service (https://findex-1cf5.onrender.com) | **0.0** | 0.00 | 0.00 | 0.00 |
+| Deployed service (https://findex-icf5.onrender.com) | **11.5** | 227.60 | 279.46 | 726.62 |
 
 ### Зв’язок із Лабами 5–6 та Reflection (Лаб 7)
 
