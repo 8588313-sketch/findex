@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -11,6 +12,7 @@ from typing import Annotated
 
 import typer
 from rich.console import Console
+from rich.live import Live
 from rich.logging import RichHandler
 from rich.progress import (
     BarColumn,
@@ -23,13 +25,14 @@ from rich.table import Table
 
 from findex.ast_query import QuerySyntaxError
 from findex.builder import ExecutorKind, build_index_parallel
+from findex.crawler import DEFAULT_USER_AGENT, CrawlStats, crawl_to_jsonl
 from findex.ranking import ScorerName, make_scorer, search
 from findex.stats import compute_stats
 from findex.storage import StorageFormat, open_index, save_index
 
 app = typer.Typer(
     name="findex",
-    help="Fast streaming inverted index and ranked Boolean/phrase search engine.",
+    help="Fast streaming inverted index, ranked Boolean/phrase search engine, and async crawler.",
     no_args_is_help=True,
     add_completion=False,
 )
@@ -80,9 +83,84 @@ def main_callback(
     _configure_logging(verbose)
 
 
+def _render_crawl_status(stats: CrawlStats, max_pages: int, out: Path) -> Table:
+    table = Table(title=f"Async Crawler -> {out}")
+    table.add_column("Collected", justify="right", style="green")
+    table.add_column("Pages/s", justify="right", style="cyan")
+    table.add_column("In-Flight", justify="right", style="yellow")
+    table.add_column("Errors", justify="right", style="red")
+    table.add_column("Queue Depth", justify="right", style="magenta")
+    table.add_row(
+        f"{stats.pages_collected}/{max_pages}",
+        f"{stats.pages_per_sec:.2f}",
+        str(stats.in_flight),
+        str(stats.errors),
+        str(stats.queue_depth),
+    )
+    return table
+
+
+@app.command("crawl")
+def cmd_crawl(
+    start_url: Annotated[str, typer.Argument(help="Seed URL to start crawling from")],
+    out: Annotated[Path, typer.Option("--out", "-o", help="Output JSONL path")] = Path("crawled.jsonl"),
+    log_file: Annotated[Path, typer.Option("--log", help="Per-URL crawl log path")] = Path("crawl.log"),
+    max_pages: Annotated[int, typer.Option("--max-pages", "-m", min=1, help="Maximum pages to collect")] = 50,
+    concurrency: Annotated[int, typer.Option("--concurrency", "-c", min=1, help="Global concurrent requests")] = 10,
+    per_host: Annotated[int, typer.Option("--per-host", min=1, help="Max concurrent requests per host")] = 2,
+    delay: Annotated[float, typer.Option("--delay", min=0.0, help="Min seconds between requests to same host")] = 0.05,
+    timeout: Annotated[float, typer.Option("--timeout", min=0.1, help="Per-request timeout in seconds")] = 10.0,
+    path_prefix: Annotated[
+        str | None,
+        typer.Option("--path-prefix", help="Restrict crawling to URLs starting with this path prefix"),
+    ] = None,
+    debug_loop: Annotated[
+        bool,
+        typer.Option("--debug", help="Enable asyncio debug mode to detect slow callbacks blocking the loop"),
+    ] = False,
+) -> None:
+    """Asynchronously crawl web pages and stream them into a JSONL file."""
+    stats = CrawlStats()
+
+    async def _run() -> None:
+        if debug_loop:
+            loop = asyncio.get_running_loop()
+            loop.set_debug(True)
+            loop.slow_callback_duration = 0.1
+
+        with Live(_render_crawl_status(stats, max_pages, out), console=err_console, refresh_per_second=8) as live:
+            await crawl_to_jsonl(
+                [start_url],
+                out,
+                max_pages=max_pages,
+                concurrency=concurrency,
+                per_host_limit=per_host,
+                min_host_delay_s=delay,
+                timeout_s=timeout,
+                allowed_path_prefix=path_prefix,
+                user_agent=DEFAULT_USER_AGENT,
+                stats=stats,
+                crawl_log_path=log_file,
+                on_page=lambda _p: live.update(_render_crawl_status(stats, max_pages, out)),
+            )
+            live.update(_render_crawl_status(stats, max_pages, out))
+
+    try:
+        asyncio.run(_run(), debug=debug_loop)
+    except (OSError, ValueError) as exc:
+        _fail(str(exc))
+        return
+
+    out_console.print(
+        f"[green]Crawled[/green] {stats.pages_collected} pages in {stats.elapsed_s:.2f}s "
+        f"({stats.pages_per_sec:.2f} pages/s, errors={stats.errors}) -> [bold]{out}[/bold] "
+        f"(log: {log_file})"
+    )
+
+
 @app.command("index")
 def cmd_index(
-    root: Annotated[Path, typer.Argument(help="Directory with .txt documents")],
+    root: Annotated[Path, typer.Argument(help="Directory with .txt documents or crawled .jsonl file")],
     out: Annotated[Path, typer.Option("--out", "-o", help="Output index file path")] = Path("index.bin"),
     fmt: Annotated[StorageFormat | None, typer.Option("--format", help="Index format: bin or pickle")] = None,
     no_positions: Annotated[bool, typer.Option("--no-positions", help="Disable storing token positions")] = False,
@@ -95,7 +173,7 @@ def cmd_index(
         typer.Option("--executor", "-e", help="Execution backend: serial, threads, or processes"),
     ] = "processes",
 ) -> None:
-    """Build and serialize an inverted index from a corpus directory."""
+    """Build and serialize an inverted index from a directory or .jsonl crawl output."""
     resolved_fmt: StorageFormat = fmt if fmt is not None else (
         "pickle" if out.suffix in {".pkl", ".pickle"} else "bin"
     )
@@ -103,8 +181,12 @@ def cmd_index(
 
     try:
         if not root.exists():
-            raise FileNotFoundError(f"Corpus directory not found: {root}")
-        total_files = sum(1 for _ in root.rglob("*.txt"))
+            raise FileNotFoundError(f"Corpus path not found: {root}")
+        if root.is_file() and root.suffix.lower() == ".jsonl":
+            with root.open("r", encoding="utf-8") as fh:
+                total_files = sum(1 for line in fh if line.strip())
+        else:
+            total_files = sum(1 for _ in root.rglob("*.txt"))
 
         tracemalloc.start()
         with Progress(
@@ -139,16 +221,6 @@ def cmd_index(
 
     file_kib = out.stat().st_size / 1024.0
     total_postings = sum(len(pl) for pl in idx.values())
-    log.info(
-        "Built %r | executor=%s workers=%d wall=%.3fs cpu=%.3fs merge=%.3fs | file=%.1f KiB",
-        idx,
-        build_stats.executor,
-        build_stats.workers,
-        build_stats.wall_time_s,
-        build_stats.cpu_time_s,
-        build_stats.merge_time_s,
-        file_kib,
-    )
     out_console.print(
         f"[green]Indexed[/green] {idx.num_docs} docs ({len(idx)} terms, {total_postings} postings) "
         f"via [cyan]{executor}[/cyan] (workers={workers}, wall={build_stats.wall_time_s:.3f}s, "
@@ -215,14 +287,14 @@ def cmd_search(
 
 @app.command("stats")
 def cmd_stats(
-    root: Annotated[Path, typer.Argument(help="Directory with .txt documents")],
+    root: Annotated[Path, typer.Argument(help="Directory with .txt documents or .jsonl file")],
     limit: Annotated[int | None, typer.Option("--limit", help="Limit number of documents")] = None,
     top: Annotated[int, typer.Option("--top", min=1, help="Top-N frequent terms")] = 10,
 ) -> None:
     """Compute streaming corpus vocabulary statistics."""
     try:
         if not root.exists():
-            raise FileNotFoundError(f"Corpus directory not found: {root}")
+            raise FileNotFoundError(f"Corpus path not found: {root}")
         tracemalloc.start()
         n_docs, counts = compute_stats(root, limit=limit)
         _, peak = tracemalloc.get_traced_memory()

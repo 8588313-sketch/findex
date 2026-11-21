@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import time
 from collections import Counter, defaultdict
@@ -10,7 +11,7 @@ from itertools import islice
 from pathlib import Path
 from typing import Literal
 
-from findex.corpus import Document, iter_documents
+from findex.corpus import Document
 from findex.decorators import timed
 from findex.models import DocMeta, Index, Posting
 from findex.tokenize import tokenize
@@ -126,7 +127,6 @@ def merge_partials(partials: Iterable[PartialIndex]) -> Index:
         return Index(postings={}, docs={}, with_positions=True)
 
     with_positions = partial_list[0].with_positions
-    # Sort shards by minimum doc_id so posting lists stay naturally ordered without re-sorting
     ordered = sorted(
         partial_list,
         key=lambda part: min(part.docs.keys()) if part.docs else -1,
@@ -147,6 +147,65 @@ def merge_partials(partials: Iterable[PartialIndex]) -> Index:
     )
 
 
+def _build_from_jsonl(
+    jsonl_path: Path,
+    with_positions: bool = True,
+    limit: int | None = None,
+    workers: int = 1,
+    executor: ExecutorKind = "serial",
+    on_doc: Callable[[Document], None] | None = None,
+) -> tuple[Index, BuildStats]:
+    """Stream documents from a crawled .jsonl file and build an Index outside the event loop."""
+    t_wall_start = time.perf_counter()
+    t_cpu_start = time.process_time()
+
+    postings_map: dict[str, list[Posting]] = defaultdict(list)
+    docs_meta: dict[int, DocMeta] = {}
+    doc_id = 0
+
+    with jsonl_path.open("r", encoding="utf-8") as fh:
+        for line in fh:
+            if limit is not None and doc_id >= limit:
+                break
+            stripped = line.strip()
+            if not stripped:
+                continue
+            record = json.loads(stripped)
+            text = str(record.get("text", ""))
+            url = str(record.get("url", f"{jsonl_path.as_posix()}#{doc_id}"))
+            title = str(record.get("title") or url)
+
+            if on_doc is not None:
+                on_doc(Document(doc_id=doc_id, path=Path(url), text=text, title=title, url=url))
+
+            tokens = list(tokenize(text))
+            docs_meta[doc_id] = DocMeta(
+                doc_id=doc_id,
+                path=url,
+                title=title,
+                length=len(tokens),
+            )
+            if with_positions:
+                pos_map: dict[str, list[int]] = defaultdict(list)
+                for pos, term in enumerate(tokens):
+                    pos_map[term].append(pos)
+                for term, positions in pos_map.items():
+                    postings_map[term].append(
+                        Posting(doc_id=doc_id, tf=len(positions), positions=tuple(positions))
+                    )
+            else:
+                for term, tf in Counter(tokens).items():
+                    postings_map[term].append(Posting(doc_id=doc_id, tf=tf))
+            doc_id += 1
+
+    t_merge_start = time.perf_counter()
+    index = Index(postings=dict(postings_map), docs=docs_meta, with_positions=with_positions)
+    merge_elapsed = time.perf_counter() - t_merge_start
+    wall_elapsed = time.perf_counter() - t_wall_start
+    cpu_elapsed = time.process_time() - t_cpu_start
+    return index, BuildStats(wall_elapsed, cpu_elapsed, merge_elapsed, workers, executor)
+
+
 def build_index_parallel(
     root: Path,
     with_positions: bool = True,
@@ -159,6 +218,16 @@ def build_index_parallel(
     if workers < 1:
         raise ValueError(f"workers must be >= 1, got {workers}")
 
+    if root.is_file() and root.suffix.lower() == ".jsonl":
+        return _build_from_jsonl(
+            jsonl_path=root,
+            with_positions=with_positions,
+            limit=limit,
+            workers=workers,
+            executor=executor,
+            on_doc=on_doc,
+        )
+
     t_wall_start = time.perf_counter()
     t_cpu_start = time.process_time()
 
@@ -169,7 +238,6 @@ def build_index_parallel(
         return empty, stats
 
     if executor == "serial" or (workers == 1 and on_doc is not None):
-        # Streaming single-pass path (supports per-document progress callback)
         postings_map: dict[str, list[Posting]] = defaultdict(list)
         docs_meta: dict[int, DocMeta] = {}
         for doc_id, path in enumerate(paths):
@@ -243,14 +311,6 @@ def build_index_parallel(
         workers=workers,
         executor=executor,
     )
-    log.debug(
-        "build_index_parallel(executor=%s, workers=%d): wall=%.3fs cpu=%.3fs merge=%.3fs",
-        executor,
-        workers,
-        wall_elapsed,
-        cpu_elapsed,
-        merge_elapsed,
-    )
     return index, stats
 
 
@@ -264,16 +324,6 @@ def build_index(
     executor: ExecutorKind = "serial",
 ) -> Index:
     """Build an inverted index over the corpus (backward-compatible wrapper)."""
-    if executor == "serial" and workers == 1 and on_doc is not None:
-        if not root.exists():
-            raise FileNotFoundError(f"Corpus directory not found: {root}")
-        if not root.is_dir():
-            raise NotADirectoryError(f"Corpus path is not a directory: {root}")
-        docs_iter = iter_documents(root)
-        if limit is not None:
-            docs_iter = islice(docs_iter, limit)
-        paths = [doc.path for doc in docs_iter]
-        _ = paths
     index, _ = build_index_parallel(
         root=root,
         with_positions=with_positions,
