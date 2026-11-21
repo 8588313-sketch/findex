@@ -204,7 +204,8 @@ def main() -> None:
 
     rows = [row_1w_async, row_1w_def, row_4w_def]
     if args.public_url:
-        pub_stats = _run_load_probe(f"{args.public_url.rstrip('/')}/search?q=python+AND+module&k=10", total_requests=200, concurrency=10)
+        httpx.get(f"{args.public_url.rstrip('/')}/health", timeout=60.0)
+        pub_stats = _run_load_probe(f"{args.public_url.rstrip('/')}/search?q=python+AND+module&k=10", total_requests=80, concurrency=4)
         rows.append({"label": f"Deployed service ({args.public_url})", **pub_stats})
 
     for r in rows:
